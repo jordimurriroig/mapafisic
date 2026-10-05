@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joc del Mapa Mundi Interactiu - Rellev i Geografia</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        #map {
+            height: calc(100vh - 165px);
+            min-height: 480px;
+            width: 100%;
+            background-color: #aad3df;
+            z-index: 1;
+        }
+        
+        .pulse-target {
+            width: 24px;
+            height: 24px;
+            background-color: #10b981;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.9);
+            animation: pulse-ring 1.5s infinite;
+        }
+        
+        .pulse-user {
+            width: 18px;
+            height: 18px;
+            background-color: #ef4444;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+        }
+
+        .study-marker {
+            width: 14px;
+            height: 14px;
+            background-color: #3b82f6;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+            transition: transform 0.2s;
+        }
+        .study-marker:hover {
+            transform: scale(1.4);
+            background-color: #1d4ed8;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 18px rgba(16, 185, 129, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col min-h-screen">
+
+    <header class="bg-slate-900 text-white shadow-md z-20 sticky top-0">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🌍</span>
+                <div>
+                    <h1 class="font-extrabold text-lg sm:text-xl tracking-tight text-amber-400">Atles Interactiu de Geografia</h1>
+                    <p class="text-xs text-slate-300 hidden sm:block">Aprenentatge i posició dels accidents geogràfics mundials amb nom complet</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap text-sm">
+                <button id="btn-mode-quiz" onclick="switchMode('quiz')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white shadow transition flex items-center gap-1">
+                    <span>🎮</span> <span class="hidden sm:inline">Joc de</span> Preguntes
+                </button>
+                <button id="btn-mode-study" onclick="switchMode('study')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-1">
+                    <span>🗺️</span> Pràctica Lliure
+                </button>
+                <button onclick="openStudyModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 font-medium text-slate-200 border border-slate-700 transition flex items-center gap-1">
+                    <span>📚</span> Llista Completa
+                </button>
+                <button id="btn-sound" onclick="toggleSound()" class="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-200" title="Activar/Desactivar So">
+                    🔊
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="bg-slate-800 text-slate-100 border-b border-slate-700 px-4 py-2.5 z-10 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+            
+            <div class="flex items-center gap-3 flex-wrap">
+                <label for="select-category" class="font-semibold text-slate-300">Categoria:</label>
+                <select id="select-category" onchange="onCategoryChange()" class="bg-slate-900 text-amber-300 border border-slate-600 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-amber-500 font-medium outline-none">
+                    <option value="ALL">🌟 Totes les categories (97 elements)</option>
+                    <option value="Rius">🏞️ Rius (20)</option>
+                    <option value="Llacs">💧 Llacs (12)</option>
+                    <option value="Penínsules">📍 Penínsules (10)</option>
+                    <option value="Serralades">🏔️ Serralades (12)</option>
+                    <option value="Pics">🔺 Pics i Muntanyes (12)</option>
+                    <option value="Mars">🌊 Mars i Golfs (10)</option>
+                    <option value="Deserts">🏜️ Deserts (7)</option>
+                    <option value="Planes">🌾 Planes i Conques (7)</option>
+                    <option value="Altiplans">⛰️ Altiplans (6)</option>
+                </select>
+
+                <div id="quiz-count-wrapper" class="flex items-center gap-1.5">
+                    <label for="select-questions-count" class="font-semibold text-slate-300">Preguntes:</label>
+                    <select id="select-questions-count" onchange="resetQuiz()" class="bg-slate-900 text-slate-200 border border-slate-600 rounded-lg px-2 py-1 outline-none">
+                        <option value="10">10 preguntes</option>
+                        <option value="20" selected>20 preguntes</option>
+                        <option value="30">30 preguntes</option>
+                        <option value="ALL">Totes les de la categoria</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-medium hidden md:inline">Capa del mapa:</span>
+                <select id="select-layer" onchange="changeMapLayer(this.value)" class="bg-slate-900 text-slate-200 border border-slate-600 rounded-lg px-2 py-1 outline-none">
+                    <option value="esriPhysical" selected>🎨 Rellev Físic en Color (Esri Physical)</option>
+                    <option value="openTopo">⛰️ Topogràfic Detallat (OpenTopo)</option>
+                    <option value="esriSatellite">🛰️ Vista de Satèl·lit</option>
+                    <option value="esriTopo">🗺️ Topogràfic Estàndard</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz-hud" class="bg-slate-900 border-b border-amber-500/30 text-white px-4 py-3 shadow-md z-10">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+            
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <div class="bg-amber-500/20 text-amber-300 p-2 rounded-xl text-2xl border border-amber-500/30">
+                    🎯
+                </div>
+                <div>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-amber-400/90 block">On es troba al mapa?</span>
+                    <h2 id="target-name" class="text-xl sm:text-2xl font-black text-white tracking-wide">
+                        -- carregant --
+                    </h2>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700">
+                <div class="text-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold block">Pregunta</span>
+                    <span id="quiz-progress" class="font-bold text-amber-400 text-base">0 / 0</span>
+                </div>
+                <div class="h-8 w-px bg-slate-700"></div>
+                <div class="text-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold block">Puntuació</span>
+                    <span id="quiz-score" class="font-bold text-emerald-400 text-base">0 pts</span>
+                </div>
+                <div class="h-8 w-px bg-slate-700"></div>
+                <div class="text-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold block">Ratxa</span>
+                    <span id="quiz-streak" class="font-bold text-amber-300 text-base">🔥 0</span>
+                </div>
+                <div>
+                    <button onclick="resetQuiz()" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg text-slate-200 transition font-medium border border-slate-600">
+                        🔄 Reiniciar
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <main class="relative flex-grow">
+        <div id="map"></div>
+
+        <div class="absolute bottom-4 left-4 z-[1000] bg-slate-900/90 backdrop-blur-md text-white p-3 rounded-xl border border-slate-700 shadow-xl max-w-xs text-xs">
+            <h4 class="font-bold text-amber-400 mb-1.5 flex items-center justify-between">
+                <span>Llegenda del Rellev Físic</span>
+                <span class="text-[10px] text-slate-400">Colors</span>
+            </h4>
+            <div class="grid grid-cols-1 gap-1">
+                <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded bg-emerald-600 border border-emerald-400 inline-block"></span> <span><strong>Verd:</strong> Baixituds i Llanures</span></div>
+                <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded bg-amber-500 border border-amber-300 inline-block"></span> <span><strong>Groc / Marró:</strong> Altiplans i Muntanyes</span></div>
+                <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded bg-slate-200 border border-slate-400 inline-block"></span> <span><strong>Blanc:</strong> Alts Pics / Gel</span></div>
+                <div class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded bg-sky-500 border border-sky-300 inline-block"></span> <span><strong>Blau:</strong> Oceans, Mars i Llacs</span></div>
+            </div>
+        </div>
+
+        <div id="feedback-banner" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] max-w-lg w-11/12 bg-slate-900 text-white rounded-2xl shadow-2xl p-4 border transition-all duration-300">
+            <div class="flex items-start justify-between gap-3">
+                <div id="feedback-icon" class="text-3xl"></div>
+                <div class="flex-grow">
+                    <h3 id="feedback-title" class="font-extrabold text-base"></h3>
+                    <p id="feedback-desc" class="text-xs text-slate-300 mt-0.5"></p>
+                </div>
+                <button id="btn-next" onclick="nextQuestion()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl shadow-lg transition text-sm flex items-center gap-1">
+                    <span>Següent</span> <span>➔</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal-results" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 text-white rounded-3xl p-6 max-w-lg w-full shadow-2xl relative overflow-hidden">
+            <div class="text-center py-2">
+                <div id="result-badge" class="text-6xl mb-2">🏆</div>
+                <h2 id="result-grade" class="text-2xl font-black text-amber-400">Excel·lent resultat!</h2>
+                <p class="text-sm text-slate-300 mt-1">Has completat la ronda de geografia mundial.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 my-5">
+                <div class="bg-slate-800/90 p-3 rounded-2xl border border-slate-700 text-center">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Puntuació Total</span>
+                    <p id="result-score" class="text-2xl font-black text-emerald-400 mt-0.5">0 pts</p>
+                </div>
+                <div class="bg-slate-800/90 p-3 rounded-2xl border border-slate-700 text-center">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Precisió</span>
+                    <p id="result-accuracy" class="text-2xl font-black text-amber-400 mt-0.5">0%</p>
+                </div>
+                <div class="bg-slate-800/90 p-3 rounded-2xl border border-slate-700 text-center">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Encerts</span>
+                    <p id="result-hits" class="text-lg font-bold text-slate-200 mt-0.5">0 / 0</p>
+                </div>
+                <div class="bg-slate-800/90 p-3 rounded-2xl border border-slate-700 text-center">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Ratxa Màxima</span>
+                    <p id="result-max-streak" class="text-lg font-bold text-amber-300 mt-0.5">🔥 0</p>
+                </div>
+            </div>
+
+            <div class="mb-5 max-h-40 overflow-y-auto bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <h4 class="text-xs font-bold text-slate-400 uppercase mb-2">Resum de la partida:</h4>
+                <ul id="result-breakdown" class="text-xs space-y-1.5 divide-y divide-slate-800/60"></ul>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeModal('modal-results'); resetQuiz();" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition text-center shadow-lg">
+                    🎮 Tornar a jugar
+                </button>
+                <button onclick="closeModal('modal-results'); switchMode('study');" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition text-center border border-slate-700">
+                    🗺️ Explorar mapa
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-study" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 text-white rounded-3xl p-6 max-w-3xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📚</span>
+                    <h3 class="text-xl font-bold text-amber-400">Tots els Accidents Geogràfics amb Nom Complet (97)</h3>
+                </div>
+                <button onclick="closeModal('modal-study')" class="text-slate-400 hover:text-white text-xl font-bold px-2 py-1">✕</button>
+            </div>
+
+            <div class="overflow-y-auto flex-grow pr-1">
+                <div id="study-list-container" class="space-y-4"></div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800 text-right">
+                <button onclick="closeModal('modal-study')" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl font-semibold text-slate-200 border border-slate-700">
+                    Tancar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * FULL GEOGRAPHY DATASET IN CATALAN (97 Elements)
+         * EVERY element explicitly prefixed with its geographic type!
+         */
+        const GEOGRAPHY_DATA = [
+            // 1. Rius (20)
+            { id: "riu-nil", name: "Riu Nil", category: "Rius", coords: [31.0, 26.0], tolerance: 700 },
+            { id: "riu-congo", name: "Riu Congo", category: "Rius", coords: [23.0, -1.0], tolerance: 650 },
+            { id: "riu-zambezi", name: "Riu Zambezi", category: "Rius", coords: [27.0, -15.0], tolerance: 600 },
+            { id: "riu-niger", name: "Riu Níger", category: "Rius", coords: [2.0, 14.0], tolerance: 600 },
+            { id: "riu-mississipi", name: "Riu Mississipí-Missouri", category: "Rius", coords: [-90.0, 35.0], tolerance: 700 },
+            { id: "riu-yukon", name: "Riu Yukon", category: "Rius", coords: [-140.0, 64.0], tolerance: 600 },
+            { id: "riu-colorado", name: "Riu Colorado", category: "Rius", coords: [-112.0, 36.0], tolerance: 500 },
+            { id: "riu-mackenzie", name: "Riu Mackenzie", category: "Rius", coords: [-122.0, 62.0], tolerance: 600 },
+            { id: "riu-amazones", name: "Riu Amazones", category: "Rius", coords: [-60.0, -3.0], tolerance: 850 },
+            { id: "riu-orinoco", name: "Riu Orinoco", category: "Rius", coords: [-65.0, 7.0], tolerance: 500 },
+            { id: "riu-parana", name: "Riu Paranà", category: "Rius", coords: [-58.0, -27.0], tolerance: 600 },
+            { id: "riu-iangtse", name: "Riu Iang-Tsé", category: "Rius", coords: [112.0, 30.0], tolerance: 650 },
+            { id: "riu-groc", name: "Riu Groc", category: "Rius", coords: [110.0, 36.0], tolerance: 600 },
+            { id: "riu-mekong", name: "Riu Mekong", category: "Rius", coords: [102.0, 18.0], tolerance: 550 },
+            { id: "riu-ganges", name: "Riu Ganges", category: "Rius", coords: [85.0, 25.0], tolerance: 500 },
+            { id: "riu-indus", name: "Riu Indus", category: "Rius", coords: [71.0, 28.0], tolerance: 500 },
+            { id: "riu-obi", name: "Riu Obi", category: "Rius", coords: [77.0, 60.0], tolerance: 700 },
+            { id: "riu-lena", name: "Riu Lena", category: "Rius", coords: [125.0, 62.0], tolerance: 700 },
+            { id: "riu-murray", name: "Riu Murray", category: "Rius", coords: [143.0, -35.0], tolerance: 500 },
+            { id: "riu-darling", name: "Riu Darling", category: "Rius", coords: [142.0, -31.0], tolerance: 500 },
+
+            // 2. Llacs (12)
+            { id: "llac-superior", name: "Llac Superior", category: "Llacs", coords: [-87.5, 47.5], tolerance: 400 },
+            { id: "llac-victoria", name: "Llac Victòria", category: "Llacs", coords: [33.0, -1.0], tolerance: 450 },
+            { id: "llac-tanganyika", name: "Llac Tanganyika", category: "Llacs", coords: [29.5, -6.0], tolerance: 450 },
+            { id: "llac-baikal", name: "Llac Baikal", category: "Llacs", coords: [108.0, 53.5], tolerance: 450 },
+            { id: "llac-marcaspi", name: "Mar / Llac Caspi", category: "Llacs", coords: [51.0, 41.5], tolerance: 600 },
+            { id: "llac-titicaca", name: "Llac Titicaca", category: "Llacs", coords: [-69.5, -15.8], tolerance: 350 },
+            { id: "llac-michigan", name: "Llac Michigan", category: "Llacs", coords: [-87.0, 44.0], tolerance: 350 },
+            { id: "llac-nicaragua", name: "Llac Nicaragua", category: "Llacs", coords: [-85.5, 11.5], tolerance: 350 },
+            { id: "llac-mararal", name: "Mar / Llac d'Aral", category: "Llacs", coords: [59.0, 45.0], tolerance: 400 },
+            { id: "llac-eyre", name: "Llac Eyre", category: "Llacs", coords: [137.0, -28.5], tolerance: 400 },
+            { id: "llac-malawi", name: "Llac Malawi", category: "Llacs", coords: [34.5, -12.0], tolerance: 400 },
+            { id: "llac-txad", name: "Llac Txad", category: "Llacs", coords: [14.0, 13.0], tolerance: 400 },
+
+            // 3. Penínsules (10)
+            { id: "pen-kamtxatka", name: "Península de Kamtxatka", category: "Penínsules", coords: [159.0, 56.0], tolerance: 650 },
+            { id: "pen-florida", name: "Península de Florida", category: "Penínsules", coords: [-81.5, 27.8], tolerance: 500 },
+            { id: "pen-labrador", name: "Península del Labrador", category: "Penínsules", coords: [-62.0, 53.0], tolerance: 700 },
+            { id: "pen-alaska", name: "Península d'Alaska", category: "Penínsules", coords: [-155.0, 57.0], tolerance: 650 },
+            { id: "pen-yucatan", name: "Península del Yucatán", category: "Penínsules", coords: [-89.0, 19.5], tolerance: 500 },
+            { id: "pen-indoxina", name: "Península d'Indoxina", category: "Penínsules", coords: [101.0, 15.0], tolerance: 650 },
+            { id: "pen-malacca", name: "Península de Malacca", category: "Penínsules", coords: [102.0, 4.0], tolerance: 450 },
+            { id: "pen-tamir", name: "Península de Tamir", category: "Penínsules", coords: [100.0, 75.0], tolerance: 700 },
+            { id: "pen-corea", name: "Península de Corea", category: "Penínsules", coords: [127.5, 36.5], tolerance: 450 },
+            { id: "pen-arabia", name: "Península d'Aràbia", category: "Penínsules", coords: [45.0, 23.0], tolerance: 750 },
+
+            // 4. Serralades (12)
+            { id: "ser-himalaia", name: "Serralada de l'Himàlaia", category: "Serralades", coords: [84.0, 28.5], tolerance: 750 },
+            { id: "ser-caucas", name: "Serralada del Caucas", category: "Serralades", coords: [43.5, 42.5], tolerance: 550 },
+            { id: "ser-andes", name: "Serralada dels Andes", category: "Serralades", coords: [-72.0, -20.0], tolerance: 900 },
+            { id: "ser-rocalloses", name: "Serralada de les Rocalloses", category: "Serralades", coords: [-110.0, 45.0], tolerance: 850 },
+            { id: "ser-sierramadre", name: "Serralada de Sierra Madre", category: "Serralades", coords: [-102.0, 24.0], tolerance: 600 },
+            { id: "ser-atles", name: "Serralada de l'Atles", category: "Serralades", coords: [-6.0, 32.0], tolerance: 550 },
+            { id: "ser-drakensberg", name: "Serralada de Drakensberg", category: "Serralades", coords: [29.0, -29.5], tolerance: 500 },
+            { id: "ser-divisoria", name: "Gran Serralada Divisòria", category: "Serralades", coords: [148.0, -25.0], tolerance: 750 },
+            { id: "ser-zagros", name: "Serralada de Zagros", category: "Serralades", coords: [50.0, 33.0], tolerance: 550 },
+            { id: "ser-apalatxes", name: "Serralada dels Apalatxes", category: "Serralades", coords: [-79.0, 38.0], tolerance: 650 },
+            { id: "ser-etiopes", name: "Muntanyes Etíopes", category: "Serralades", coords: [39.0, 9.0], tolerance: 550 },
+            { id: "ser-alpszealandesos", name: "Alps Neozelandesos", category: "Serralades", coords: [170.5, -43.5], tolerance: 450 },
+
+            // 5. Pics (12)
+            { id: "pic-k2", name: "Pic K2", category: "Pics", coords: [76.5, 35.9], tolerance: 400 },
+            { id: "pic-everest", name: "Pic Everest", category: "Pics", coords: [86.9, 27.9], tolerance: 400 },
+            { id: "pic-aconcagua", name: "Pic Aconcagua", category: "Pics", coords: [-70.0, -32.6], tolerance: 400 },
+            { id: "pic-elbrus", name: "Pic Elbrus", category: "Pics", coords: [42.4, 43.3], tolerance: 400 },
+            { id: "pic-kilimanjaro", name: "Pic Kilimanjaro", category: "Pics", coords: [37.3, -3.0], tolerance: 400 },
+            { id: "pic-denali", name: "Pic McKinley (Denali)", category: "Pics", coords: [-151.0, 63.0], tolerance: 450 },
+            { id: "pic-kenya", name: "Pic Mount Kenya", category: "Pics", coords: [37.3, -0.15], tolerance: 400 },
+            { id: "pic-puncakjaya", name: "Pic Puncak Jaya", category: "Pics", coords: [137.1, -4.0], tolerance: 400 },
+            { id: "pic-kosciuszko", name: "Pic Mount Kosciuszko", category: "Pics", coords: [148.2, -36.4], tolerance: 400 },
+            { id: "pic-fuji", name: "Pic Fuji", category: "Pics", coords: [138.7, 35.3], tolerance: 350 },
+            { id: "pic-popocatepetl", name: "Pic Popocatépetl", category: "Pics", coords: [-98.6, 19.0], tolerance: 350 },
+            { id: "pic-citlaltepetl", name: "Pic Citlaltépetl", category: "Pics", coords: [-97.3, 19.0], tolerance: 350 },
+
+            // 6. Mars i Golfs (10)
+            { id: "mar-mediterrani", name: "Mar Mediterrani", category: "Mars", coords: [18.0, 35.0], tolerance: 750 },
+            { id: "mar-negre", name: "Mar Negre", category: "Mars", coords: [34.0, 43.0], tolerance: 500 },
+            { id: "mar-roig", name: "Mar Roig", category: "Mars", coords: [38.0, 20.0], tolerance: 550 },
+            { id: "mar-nord", name: "Mar del Nord", category: "Mars", coords: [3.0, 56.0], tolerance: 450 },
+            { id: "mar-baltic", name: "Mar Bàltic", category: "Mars", coords: [20.0, 58.0], tolerance: 500 },
+            { id: "mar-carib", name: "Mar Carib", category: "Mars", coords: [-75.0, 15.0], tolerance: 700 },
+            { id: "mar-mexic", name: "Golf de Mèxic", category: "Mars", coords: [-90.0, 25.0], tolerance: 650 },
+            { id: "mar-xinameridional", name: "Mar de la Xina Meridional", category: "Mars", coords: [115.0, 12.0], tolerance: 750 },
+            { id: "mar-japo", name: "Mar del Japó", category: "Mars", coords: [135.0, 38.0], tolerance: 500 },
+            { id: "mar-arabic", name: "Mar Aràbic", category: "Mars", coords: [64.0, 15.0], tolerance: 800 },
+
+            // 7. Deserts (7)
+            { id: "des-sahara", name: "Desert del Sàhara", category: "Deserts", coords: [13.0, 23.0], tolerance: 950 },
+            { id: "des-kalahari", name: "Desert de Kalahari", category: "Deserts", coords: [22.0, -23.0], tolerance: 600 },
+            { id: "des-namib", name: "Desert de Namib", category: "Deserts", coords: [15.0, -24.0], tolerance: 450 },
+            { id: "des-gobi", name: "Desert de Gobi", category: "Deserts", coords: [104.0, 42.0], tolerance: 750 },
+            { id: "des-arabic", name: "Desert Aràbic", category: "Deserts", coords: [45.0, 25.0], tolerance: 700 },
+            { id: "des-atacama", name: "Desert d'Atacama", category: "Deserts", coords: [-69.0, -23.5], tolerance: 500 },
+            { id: "des-victoria", name: "Gran Desert Victòria", category: "Deserts", coords: [129.0, -29.0], tolerance: 650 },
+
+            // 8. Planes i Conques (7)
+            { id: "pla-artesiana", name: "Gran Conca Artesiana", category: "Planes", coords: [138.0, -26.0], tolerance: 700 },
+            { id: "pla-europea", name: "Gran Plana Europea", category: "Planes", coords: [25.0, 52.0], tolerance: 800 },
+            { id: "pla-siberiaoccid", name: "Gran Plana de la Sibèria Occidental", category: "Planes", coords: [75.0, 60.0], tolerance: 850 },
+            { id: "pla-conca-mississipi", name: "Conca del Mississipí-Missouri", category: "Planes", coords: [-92.0, 38.0], tolerance: 750 },
+            { id: "pla-nordamericana", name: "Gran Plana Nord-Americana", category: "Planes", coords: [-100.0, 40.0], tolerance: 800 },
+            { id: "pla-conca-amazones", name: "Conca de l'Amazones", category: "Planes", coords: [-62.0, -4.0], tolerance: 900 },
+            { id: "pla-conca-txad", name: "Conca del Txad", category: "Planes", coords: [16.0, 13.0], tolerance: 650 },
+
+            // 9. Altiplans (6)
+            { id: "alt-iran", name: "Altiplà de l'Iran", category: "Altiplans", coords: [54.0, 32.0], tolerance: 650 },
+            { id: "alt-siberiacentral", name: "Altiplà de la Sibèria Central", category: "Altiplans", coords: [100.0, 65.0], tolerance: 800 },
+            { id: "alt-pamir", name: "Altiplà del Pamir", category: "Altiplans", coords: [73.0, 38.0], tolerance: 500 },
+            { id: "alt-tibet", name: "Altiplà del Tibet", category: "Altiplans", coords: [88.0, 33.0], tolerance: 750 },
+            { id: "alt-llacvictoria", name: "Altiplà del Llac Victòria", category: "Altiplans", coords: [33.0, -1.5], tolerance: 500 },
+            { id: "alt-brasiler", name: "Altiplà Brasiler", category: "Altiplans", coords: [-50.0, -15.0], tolerance: 800 }
+        ];
+
+        const TILE_LAYERS = {
+            esriPhysical: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 8,
+                attribution: 'Tiles &copy; Esri &mdash; Source: US National Park Service'
+            }),
+            openTopo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                maxZoom: 14,
+                attribution: 'Map data &copy; OpenStreetMap, SRTM | Map style &copy; OpenTopoMap'
+            }),
+            esriSatellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 12,
+                attribution: 'Tiles &copy; Esri'
+            }),
+            esriTopo: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 12,
+                attribution: 'Tiles &copy; Esri'
+            })
+        };
+
+        let map = null;
+        let activeTileLayer = null;
+        let currentMode = 'quiz';
+        let currentQuestions = [];
+        let questionIndex = 0;
+        let targetItem = null;
+        let score = 0;
+        let streak = 0;
+        let maxStreak = 0;
+        let soundEnabled = true;
+        let soundCtx = null;
+        let quizResultsHistory = [];
+
+        let userMarker = null;
+        let targetMarker = null;
+        let errorPolyline = null;
+        let studyMarkersLayerGroup = L.layerGroup();
+
+        window.onload = function() {
+            initMap();
+            populateStudyModal();
+            resetQuiz();
+        };
+
+        function initMap() {
+            map = L.map('map', {
+                center: [20, 10],
+                zoom: 2,
+                minZoom: 2,
+                maxZoom: 10,
+                worldCopyJump: true
+            });
+
+            activeTileLayer = TILE_LAYERS.esriPhysical;
+            activeTileLayer.addTo(map);
+
+            studyMarkersLayerGroup.addTo(map);
+
+            map.on('click', handleMapClick);
+        }
+
+        function changeMapLayer(layerKey) {
+            if (activeTileLayer) {
+                map.removeLayer(activeTileLayer);
+            }
+            if (TILE_LAYERS[layerKey]) {
+                activeTileLayer = TILE_LAYERS[layerKey];
+                activeTileLayer.addTo(map);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('btn-sound').innerText = soundEnabled ? '🔊' : '🔇';
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (!soundCtx) soundCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (soundCtx.state === 'suspended') soundCtx.resume();
+
+                const now = soundCtx.currentTime;
+                const osc = soundCtx.createOscillator();
+                const gain = soundCtx.createGain();
+                osc.connect(gain);
+                gain.connect(soundCtx.destination);
+
+                if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.25);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'incorrect') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(240, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.35);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'win') {
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                        const o = soundCtx.createOscillator();
+                        const g = soundCtx.createGain();
+                        o.connect(g);
+                        g.connect(soundCtx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.15, now + i * 0.1);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.25);
+                        o.start(now + i * 0.1);
+                        o.stop(now + i * 0.1 + 0.25);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio not supported", e);
+            }
+        }
+
+        function onCategoryChange() {
+            resetQuiz();
+        }
+
+        function resetQuiz() {
+            clearFeedbackAndMarkers();
+            
+            const selectedCat = document.getElementById('select-category').value;
+            const countVal = document.getElementById('select-questions-count').value;
+
+            let filtered = (selectedCat === 'ALL') 
+                ? [...GEOGRAPHY_DATA] 
+                : GEOGRAPHY_DATA.filter(item => item.category === selectedCat);
+
+            filtered.sort(() => Math.random() - 0.5);
+
+            let qCount = (countVal === 'ALL') ? filtered.length : parseInt(countVal, 10);
+            currentQuestions = filtered.slice(0, Math.min(qCount, filtered.length));
+
+            questionIndex = 0;
+            score = 0;
+            streak = 0;
+            maxStreak = 0;
+            quizResultsHistory = [];
+
+            updateHUD();
+
+            if (currentQuestions.length > 0) {
+                loadQuestion();
+            } else {
+                document.getElementById('target-name').innerText = "Cap element en aquesta categoria";
+            }
+        }
+
+        function loadQuestion() {
+            clearFeedbackAndMarkers();
+            if (questionIndex >= currentQuestions.length) {
+                finishQuiz();
+                return;
+            }
+
+            targetItem = currentQuestions[questionIndex];
+            document.getElementById('target-name').innerText = targetItem.name;
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('quiz-progress').innerText = `${questionIndex + 1} / ${currentQuestions.length}`;
+            document.getElementById('quiz-score').innerText = `${score} pts`;
+            document.getElementById('quiz-streak').innerText = `🔥 ${streak}`;
+        }
+
+        function handleMapClick(e) {
+            if (currentMode !== 'quiz' || !targetItem) return;
+
+            if (!document.getElementById('feedback-banner').classList.contains('hidden')) return;
+
+            const clickLat = e.latlng.lat;
+            const clickLng = e.latlng.lng;
+
+            const targetLat = targetItem.coords[1];
+            const targetLng = targetItem.coords[0];
+
+            const distance = calculateHaversine(clickLat, clickLng, targetLat, targetLng);
+            const isCorrect = distance <= targetItem.tolerance;
+
+            renderAnswerMapVisuals(clickLat, clickLng, targetLat, targetLng, distance, isCorrect);
+
+            let earnedPoints = 0;
+            if (isCorrect) {
+                earnedPoints = 100 + Math.max(0, Math.round((targetItem.tolerance - distance) / 5));
+                score += earnedPoints;
+                streak++;
+                if (streak > maxStreak) maxStreak = streak;
+                playSound('correct');
+            } else {
+                streak = 0;
+                playSound('incorrect');
+            }
+
+            quizResultsHistory.push({
+                item: targetItem,
+                distance: distance,
+                isCorrect: isCorrect,
+                points: earnedPoints
+            });
+
+            updateHUD();
+            showFeedbackBanner(isCorrect, distance, earnedPoints);
+        }
+
+        function calculateHaversine(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return Math.round(R * c);
+        }
+
+        function renderAnswerMapVisuals(clickLat, clickLng, targetLat, targetLng, distance, isCorrect) {
+            const userIcon = L.divIcon({
+                className: 'pulse-user',
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+            userMarker = L.marker([clickLat, clickLng], { icon: userIcon }).addTo(map);
+
+            const targetIcon = L.divIcon({
+                className: 'pulse-target',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+            targetMarker = L.marker([targetLat, targetLng], { icon: targetIcon }).addTo(map);
+            targetMarker.bindTooltip(`<b>${targetItem.name}</b>`, { permanent: true, direction: 'top', className: 'bg-slate-900 text-amber-300 font-bold border-amber-500 text-xs px-2.5 py-1 rounded-lg shadow-lg' }).openTooltip();
+
+            errorPolyline = L.polyline([
+                [clickLat, clickLng],
+                [targetLat, targetLng]
+            ], {
+                color: isCorrect ? '#10b981' : '#ef4444',
+                weight: 3,
+                dashArray: '6, 8'
+            }).addTo(map);
+
+            const bounds = L.latLngBounds([[clickLat, clickLng], [targetLat, targetLng]]);
+            map.flyToBounds(bounds, { padding: [80, 80], maxZoom: 6, duration: 1 });
+        }
+
+        function showFeedbackBanner(isCorrect, distance, points) {
+            const banner = document.getElementById('feedback-banner');
+            const icon = document.getElementById('feedback-icon');
+            const title = document.getElementById('feedback-title');
+            const desc = document.getElementById('feedback-desc');
+
+            banner.classList.remove('hidden', 'border-emerald-500', 'border-red-500', 'border-amber-500');
+
+            if (isCorrect) {
+                banner.classList.add('border-emerald-500');
+                icon.innerText = '🎉';
+                title.innerText = `Molt bé! Encertat (+${points} pts)`;
+                title.className = 'font-extrabold text-emerald-400 text-base';
+                desc.innerText = `Has encertat la ubicació de "${targetItem.name}" amb una desviació de només ${distance} km!`;
+            } else {
+                banner.classList.add('border-red-500');
+                icon.innerText = '❌';
+                title.innerText = `Incorrecte! Desviació de ${distance} km`;
+                title.className = 'font-extrabold text-red-400 text-base';
+                desc.innerText = `La ubicació exacta de "${targetItem.name}" s'ha marcat al mapa amb el punt verd.`;
+            }
+
+            banner.classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            questionIndex++;
+            loadQuestion();
+        }
+
+        function clearFeedbackAndMarkers() {
+            document.getElementById('feedback-banner').classList.add('hidden');
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+            if (targetMarker) { map.removeLayer(targetMarker); targetMarker = null; }
+            if (errorPolyline) { map.removeLayer(errorPolyline); errorPolyline = null; }
+        }
+
+        function finishQuiz() {
+            playSound('win');
+            
+            const totalQ = currentQuestions.length;
+            const hits = quizResultsHistory.filter(r => r.isCorrect).length;
+            const accuracy = Math.round((hits / totalQ) * 100);
+
+            let gradeBadge = '🏆';
+            let gradeTitle = 'Excel·lent!';
+
+            if (accuracy >= 90) { gradeBadge = '🏆'; gradeTitle = 'Excel·lent!'; }
+            else if (accuracy >= 70) { gradeBadge = '🥇'; gradeTitle = 'Notable!'; }
+            else if (accuracy >= 50) { gradeBadge = '🥈'; gradeTitle = 'Satisfactori!'; }
+            else { gradeBadge = '📖'; gradeTitle = 'Cal revisar el mapa!'; }
+
+            document.getElementById('result-badge').innerText = gradeBadge;
+            document.getElementById('result-grade').innerText = gradeTitle;
+            document.getElementById('result-score').innerText = `${score} pts`;
+            document.getElementById('result-accuracy').innerText = `${accuracy}%`;
+            document.getElementById('result-hits').innerText = `${hits} / ${totalQ}`;
+            document.getElementById('result-max-streak').innerText = `🔥 ${maxStreak}`;
+
+            const breakdown = document.getElementById('result-breakdown');
+            breakdown.innerHTML = '';
+            quizResultsHistory.forEach(r => {
+                const li = document.createElement('li');
+                li.className = 'py-1 flex items-center justify-between text-xs';
+                li.innerHTML = `
+                    <span class="font-semibold ${r.isCorrect ? 'text-emerald-400' : 'text-red-400'}">
+                        ${r.isCorrect ? '✓' : '✗'} ${r.item.name}
+                    </span>
+                    <span class="text-slate-400">${r.distance} km d'error</span>
+                `;
+                breakdown.appendChild(li);
+            });
+
+            document.getElementById('modal-results').classList.remove('hidden');
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            clearFeedbackAndMarkers();
+
+            const btnQuiz = document.getElementById('btn-mode-quiz');
+            const btnStudy = document.getElementById('btn-mode-study');
+            const quizHud = document.getElementById('quiz-hud');
+            const quizCountWrap = document.getElementById('quiz-count-wrapper');
+
+            if (mode === 'quiz') {
+                btnQuiz.className = "px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white shadow transition flex items-center gap-1";
+                btnStudy.className = "px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-1";
+                quizHud.style.display = 'block';
+                quizCountWrap.style.display = 'flex';
+                studyMarkersLayerGroup.clearLayers();
+                resetQuiz();
+            } else {
+                btnStudy.className = "px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 font-bold text-slate-950 shadow transition flex items-center gap-1";
+                btnQuiz.className = "px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-1";
+                quizHud.style.display = 'none';
+                quizCountWrap.style.display = 'none';
+                renderStudyMarkers();
+            }
+        }
+
+        function renderStudyMarkers() {
+            studyMarkersLayerGroup.clearLayers();
+            const selectedCat = document.getElementById('select-category').value;
+
+            const filtered = (selectedCat === 'ALL')
+                ? GEOGRAPHY_DATA
+                : GEOGRAPHY_DATA.filter(i => i.category === selectedCat);
+
+            filtered.forEach(item => {
+                const icon = L.divIcon({
+                    className: 'study-marker',
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                const m = L.marker([item.coords[1], item.coords[0]], { icon: icon });
+                m.bindPopup(`
+                    <div class="text-slate-900 font-bold text-sm">
+                        <span class="text-xs text-amber-600 uppercase block font-semibold">${item.category}</span>
+                        ${item.name}
+                    </div>
+                `);
+                studyMarkersLayerGroup.addLayer(m);
+            });
+        }
+
+        function openStudyModal() {
+            document.getElementById('modal-study').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function populateStudyModal() {
+            const container = document.getElementById('study-list-container');
+            container.innerHTML = '';
+
+            const categories = [...new Set(GEOGRAPHY_DATA.map(i => i.category))];
+
+            categories.forEach(cat => {
+                const items = GEOGRAPHY_DATA.filter(i => i.category === cat);
+                const section = document.createElement('div');
+                section.className = "bg-slate-800/80 p-4 rounded-2xl border border-slate-700";
+
+                let html = `
+                    <h4 class="font-extrabold text-amber-400 text-sm mb-3 flex items-center justify-between border-b border-slate-700 pb-2">
+                        <span>${cat}</span>
+                        <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">${items.length} elements</span>
+                    </h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                `;
+
+                items.forEach(item => {
+                    html += `
+                        <button onclick="zoomToStudyItem(${item.coords[1]}, ${item.coords[0]}, '${item.name.replace(/'/g, "\\'")}')" class="flex items-center justify-between p-2 rounded-xl bg-slate-900/80 hover:bg-slate-700 transition border border-slate-800 text-left group">
+                            <span class="font-semibold text-slate-200 group-hover:text-amber-300">${item.name}</span>
+                            <span class="text-slate-500 text-[10px]">📍</span>
+                        </button>
+                    `;
+                });
+
+                html += `</div>`;
+                section.innerHTML = html;
+                container.appendChild(section);
+            });
+        }
+
+        function zoomToStudyItem(lat, lng, name) {
+            closeModal('modal-study');
+            switchMode('study');
+            map.flyTo([lat, lng], 5, { duration: 1.5 });
+        }
+    </script>
+</body>
+</html>
